@@ -1,0 +1,9 @@
+Failed to connect to the database: PrismaClientInitializationError: Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+    at r (/app/node_modules/@prisma/client/runtime/library.js:112:2770)
+    at async startServer (/app/server.js:42:5) {
+  clientVersion: '6.18.0',
+  errorCode: 'P1001',
+  retryable: undefined
+}
