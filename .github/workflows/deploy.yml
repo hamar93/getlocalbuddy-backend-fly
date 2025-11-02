@@ -11,11 +11,11 @@ jobs:
     name: Deploy app
     runs-on: ubuntu-latest
     steps:
-      # 1. Helyes Checkout akció
-      - uses: actions/checkout@v4 
+      # 1. Helyes Checkout (ajánlott v4)
+      - uses: actions/checkout@v4
       
-      # 2. Helyes Flyctl beállítás (a 'master' helyett fix verzió vagy 'main' kell)
-      - uses: superfly/flyctl-actions/setup@v2 
+      # 2. Helyes Flyctl beállítás: HASZNÁLJA AZ AJÁNLOTT V3-AT!
+      - uses: superfly/flyctl-actions/setup@v3 
       
       # 3. Deploy
       - run: flyctl deploy --remote-only
