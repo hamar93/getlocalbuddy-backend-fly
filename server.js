@@ -5,7 +5,18 @@ const cors = require('cors');
 
 const prisma = new PrismaClient();
 const app = express();
-app.use(cors());
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || /^https?:\/\/[a-zA-Z0-9-]+\.netlify\.app$/.test(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
