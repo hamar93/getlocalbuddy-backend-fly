@@ -2,8 +2,6 @@
 app = "getlocalbuddy-backend-fly"
 primary_region = "ams" # VAGY a te általad választott régió
 
-[build]
-builder = "gcr.io/paketo-buildpacks/builder:base"
 
 [env]
   PORT = "8080"
