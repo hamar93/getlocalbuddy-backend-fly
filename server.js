@@ -1,12 +1,19 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
+const cors = require('cors'); // CORS importálása
+
+const app = express();
+app.use(express.json()); // JSON olvasó engedélyezése
+
+// --- JAVÍTÁS: CORS Engedélyezése a Netlify domainről ---
+// Enélkül a böngésző blokkolja a "Failed to connect" hibával
+app.use(cors({
+  origin: 'https://beamish-stardust-0c393f.netlify.app'
+}));
 
 // FIGYELEM: A globális "const prisma = new PrismaClient();" sort eltávolítottuk innen,
 // hogy megakadályozzuk a szerver azonnali összeomlását (502-es hiba).
-
-const app = express();
-app.use(express.json());
 
 // A port beolvasása (a 8080 a Fly.io által preferált alapértelmezett)
 const PORT = process.env.PORT || 8080; 
@@ -19,9 +26,7 @@ app.get('/api/status', (req, res) => {
 // --- REGISZTRÁCIÓS VÉGPONT ---
 app.post('/api/register', async (req, res) => {
     
-    // JAVÍTÁS: A Prisma klienst itt, a funkción belül inicializáljuk.
-    // Ez biztosítja, hogy csak akkor fusson le, amikor már hívás érkezik,
-    // és a szerver már stabilan fut (a titkos kulcsok be vannak töltve).
+    // JAVÍTÁS: A Prisma klienst itt, a funkción belül inicializáljuk!
     const prisma = new PrismaClient(); 
     
     const { email, password } = req.body;
@@ -43,6 +48,40 @@ app.post('/api/register', async (req, res) => {
         if (error.code === 'P2002') {
             return res.status(409).json({ error: 'Email already exists.' });
         }
+        console.error(error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+});
+
+// --- BEJELENTKEZÉSI VÉGPONT ---
+app.post('/api/login', async (req, res) => {
+    
+    // JAVÍTÁS: A Prisma klienst itt is, a funkción belül inicializáljuk!
+    const prisma = new PrismaClient();
+    
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required.' });
+    }
+
+    try {
+        const user = await prisma.user.findUnique({
+            where: { email: email },
+        });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
+
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+
+        if (!isPasswordValid) {
+            return res.status(401).json({ error: 'Invalid password.' });
+        }
+
+        res.status(200).json({ message: 'Login successful', userId: user.id });
+    } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Internal server error.' });
     }
