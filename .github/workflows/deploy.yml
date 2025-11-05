@@ -1,23 +1,25 @@
-# .github/workflows/deploy.yml
-name: Fly Deploy
+name: Deploy to Fly.io
 
 on:
   push:
     branches:
-      - main
+      - main  # Vagy a te branch-ed neve
 
 jobs:
   deploy:
-    name: Deploy app
+    name: 🚀 Deploy app to Fly.io
     runs-on: ubuntu-latest
+
     steps:
-      # 1. Helyes Checkout (ajánlott v4)
-      - uses: actions/checkout@v4
-      
-      # 2. Helyes Flyctl beállítás: HASZNÁLJA AZ AJÁNLOTT V3-AT!
-      - uses: superfly/flyctl-actions/setup@v3 
-      
-      # 3. Deploy
-      - run: flyctl deploy --remote-only
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Flyctl
+        # Ez a helyes hivatkozás a régi helyett: superfly/flyctl-actions/setup@master
+        uses: superfly/flyctl-actions/setup-flyctl@v1
+
+      - name: Deploy app
+        # A flyctl deploy parancs, ami feltölti a szervert
+        run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
