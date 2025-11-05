@@ -12,8 +12,9 @@ app.use(cors({
   origin: 'https://beamish-stardust-0c393f.netlify.app'
 }));
 
-// FIGYELEM: A globális "const prisma = new PrismaClient();" sort eltávolítottuk innen,
-// hogy megakadályozzuk a szerver azonnali összeomlását (502-es hiba).
+// JAVÍTÁS: A Prisma klienst globálisan inicializáljuk, a szerver tetején.
+// Erre azért van szükség, hogy ne hozzunk létre minden egyes kérésnél új kapcsolatot.
+const prisma = new PrismaClient();
 
 // A port beolvasása (a 8080 a Fly.io által preferált alapértelmezett)
 const PORT = process.env.PORT || 8080; 
@@ -25,9 +26,6 @@ app.get('/api/status', (req, res) => {
 
 // --- REGISZTRÁCIÓS VÉGPONT ---
 app.post('/api/register', async (req, res) => {
-    
-    // JAVÍTÁS: A Prisma klienst itt, a funkción belül inicializáljuk!
-    const prisma = new PrismaClient(); 
     
     const { email, password } = req.body;
 
@@ -55,9 +53,6 @@ app.post('/api/register', async (req, res) => {
 
 // --- BEJELENTKEZÉSI VÉGPONT ---
 app.post('/api/login', async (req, res) => {
-    
-    // JAVÍTÁS: A Prisma klienst itt is, a funkción belül inicializáljuk!
-    const prisma = new PrismaClient();
     
     const { email, password } = req.body;
 
