@@ -1,17 +1,33 @@
 # fly.toml app configuration file
 app = "getlocalbuddy-backend-fly"
-primary_region = "ams" # VAGY a te általad választott régió
-
-[build]
-builder = "heroku/buildpacks:latest"
+primary_region = "ams"
 
 [env]
-  PORT = "8080"
+PORT = "8080"
+
 
 [http_service]
-  internal_port = 8080
-  force_https = true
-  auto_stop_machines = true
-  auto_start_machines = true
-  min_machines_running = 0
-  processes = ["app"]
+internal_port = 8080
+force_https = true
+auto_stop_machines = true
+auto_start_machines = true
+min_machines_running = 0
+processes = ["app"]
+
+[[services]]
+protocol = "tcp"
+internal_port = 8080
+processes = ["app"]
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "30s"
