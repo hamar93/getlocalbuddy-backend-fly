@@ -1,17 +1,20 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
+// 1. JAVÍTÁS: A generátornak jelezzük, hogy Mongo-t használunk
 generator client {
   provider = "prisma-client-js"
 }
 
+// 2. JAVÍTÁS: A providert átállítjuk "mongodb"-re
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
+// 3. JAVÍTÁS: A User modellt a MongoDB-hez igazítjuk
 model User {
-  id        String   @id @default(cuid())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   email     String   @unique
   password  String
   createdAt DateTime @default(now())
