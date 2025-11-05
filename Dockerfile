@@ -10,7 +10,7 @@ WORKDIR /app
 FROM base AS deps
 RUN apt-get update && apt-get install -y openssl
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # -------------------------------
 # 3. Build & runtime
