@@ -1,20 +1,18 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
-const cors = require('cors'); // CORS importálása
+const cors = require('cors');
 
 const app = express();
-app.use(express.json()); // JSON olvasó engedélyezése
+app.use(express.json());
 
-// --- JAVÍTÁS: CORS Engedélyezése a Netlify domainről ---
-// Enélkül a böngésző blokkolja a "Failed to connect" hibával
+// --- JAVÍTÁS: CORS Engedélyezése ---
 app.use(cors({
-  origin: 'https://beamish-stardust-0c393f.netlify.app'
+  origin: 'https://beamish-stardust-0c393f.netlify.app'
 }));
 
-// JAVÍTÁS: A Prisma klienst globálisan inicializáljuk, a szerver tetején.
-// Erre azért van szükség, hogy ne hozzunk létre minden egyes kérésnél új kapcsolatot.
-const prisma = new PrismaClient();
+// FIGYELEM: A Prisma klienst globálisan TÖRLÖLJÜK innen!
+// const prisma = new PrismaClient(); // EZ A SOR TÖRÖLVE!
 
 // A port beolvasása (a 8080 a Fly.io által preferált alapértelmezett)
 const PORT = process.env.PORT || 8080; 
@@ -26,6 +24,8 @@ app.get('/api/status', (req, res) => {
 
 // --- REGISZTRÁCIÓS VÉGPONT ---
 app.post('/api/register', async (req, res) => {
+    // JAVÍTÁS: A Prisma klienst itt, a funkción belül inicializáljuk!
+    const prisma = new PrismaClient();
     
     const { email, password } = req.body;
 
@@ -48,11 +48,16 @@ app.post('/api/register', async (req, res) => {
         }
         console.error(error);
         res.status(500).json({ error: 'Internal server error.' });
-    }
+    } finally {
+        await prisma.$disconnect(); // Jó gyakorlat: a funkció végén bontsuk a kapcsolatot.
+    }
 });
 
 // --- BEJELENTKEZÉSI VÉGPONT ---
 app.post('/api/login', async (req, res) => {
+    
+    // JAVÍTÁS: A Prisma klienst itt is, a funkción belül inicializáljuk!
+    const prisma = new PrismaClient();
     
     const { email, password } = req.body;
 
@@ -79,7 +84,9 @@ app.post('/api/login', async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Internal server error.' });
-    }
+    } finally {
+        await prisma.$disconnect(); // Jó gyakorlat: a funkció végén bontsuk a kapcsolatot.
+    }
 });
 
 // --- SZERVER INDÍTÁSA ---
