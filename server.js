@@ -74,6 +74,43 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// --- CREATE POST ENDPOINT ---
+app.post('/api/posts', async (req, res) => {
+  const { content, authorId } = req.body;
+
+  if (!content || !authorId) {
+    return res.status(400).json({ error: 'Content and author ID are required.' });
+  }
+
+  try {
+    const post = await prisma.post.create({
+      data: {
+        content,
+        authorId,
+      },
+    });
+    res.status(201).json(post);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// --- GET POSTS ENDPOINT ---
+app.get('/api/posts', async (req, res) => {
+  try {
+    const posts = await prisma.post.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+    res.json(posts);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 // --- SERVER START ---
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
