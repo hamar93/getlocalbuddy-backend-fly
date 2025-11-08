@@ -20,7 +20,7 @@ app.get('/api/status', (req, res) => {
 
 // --- REGISTRATION ENDPOINT ---
 app.post('/api/register', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, accountType } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required.' });
@@ -32,6 +32,7 @@ app.post('/api/register', async (req, res) => {
       data: {
         email,
         password: hashedPassword,
+        accountType,
       },
     });
     res.status(201).json({ message: 'User created successfully.', userId: user.id });
