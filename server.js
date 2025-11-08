@@ -4,22 +4,22 @@ const bcrypt = require('bcryptjs');
 const cors = require('cors');
 
 const app = express();
+const prisma = new PrismaClient();
+
 app.use(express.json());
 
-// JAVÍTÁS: Engedélyezzük a CORS-t a Netlify domainről
+// Configure CORS to allow requests from the Netlify frontend
 app.use(cors({ origin: 'https://beamish-stardust-0c393f.netlify.app' }));
 
-// FIGYELEM: A globális "const prisma = new PrismaClient();" sort eltávolítottuk innen.
 const PORT = process.env.PORT || 8080;
 
-// --- HEALTH CHECK (Állapot Ellenőrzés) ---
+// --- HEALTH CHECK ---
 app.get('/api/status', (req, res) => {
   res.json({ status: 'ok', service: 'backend' });
 });
 
-// --- REGISZTRÁCIÓS VÉGPONT ---
+// --- REGISTRATION ENDPOINT ---
 app.post('/api/register', async (req, res) => {
-  const prisma = new PrismaClient(); // Prisma inicializálása a funkción belül
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -41,14 +41,11 @@ app.post('/api/register', async (req, res) => {
     }
     console.error(error);
     res.status(500).json({ error: 'Internal server error.' });
-  } finally {
-    await prisma.$disconnect();
   }
 });
 
-// --- BEJELENTKEZÉSI VÉGPONT ---
+// --- LOGIN ENDPOINT ---
 app.post('/api/login', async (req, res) => {
-  const prisma = new PrismaClient(); // Prisma inicializálása a funkción belül
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -70,16 +67,14 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid password.' });
     }
 
-    res.status(200).json({ message: 'Login successful', userId: user.id });
+    res.status(200).json({ id: user.id, email: user.email });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error.' });
-  } finally {
-    await prisma.$disconnect();
   }
 });
 
-// --- SZERVER INDÍTÁSA ---
+// --- SERVER START ---
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });
