@@ -17,7 +17,7 @@ model User {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   email       String   @unique
   password    String
-  accountType String   @default("Traveler")
+  role        String   @default("Traveler")
   posts       Post[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

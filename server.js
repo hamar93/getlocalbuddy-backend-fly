@@ -20,7 +20,7 @@ app.get('/api/status', (req, res) => {
 
 // --- REGISTRATION ENDPOINT ---
 app.post('/api/register', async (req, res) => {
-  const { email, password, accountType } = req.body;
+  const { email, password, role } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required.' });
@@ -32,7 +32,7 @@ app.post('/api/register', async (req, res) => {
       data: {
         email,
         password: hashedPassword,
-        accountType,
+        role,
       },
     });
     res.status(201).json({ message: 'User created successfully.', userId: user.id });
@@ -68,7 +68,7 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid password.' });
     }
 
-    res.status(200).json({ id: user.id, email: user.email });
+    res.status(200).json({ id: user.id, email: user.email, role: user.role });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error.' });
