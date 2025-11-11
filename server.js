@@ -32,7 +32,7 @@ app.post('/api/register', async (req, res) => {
       data: {
         email,
         password: hashedPassword,
-        role,
+        role, // This correctly accepts the 'role' from the frontend
       },
     });
     res.status(201).json({ message: 'User created successfully.', userId: user.id });
@@ -68,7 +68,10 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid password.' });
     }
 
-    res.status(200).json({ id: user.id, email: user.email, role: user.role });
+    // Do not send the password back to the client
+    const { password: _, ...userWithoutPassword } = user;
+    res.json({ message: 'Login successful.', user: userWithoutPassword });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error.' });
@@ -97,15 +100,41 @@ app.post('/api/posts', async (req, res) => {
   }
 });
 
-// --- GET POSTS ENDPOINT ---
+// --- GET POSTS ENDPOINT (UPDATED) ---
 app.get('/api/posts', async (req, res) => {
   try {
     const posts = await prisma.post.findMany({
       orderBy: {
         createdAt: 'desc',
       },
+      // UPDATE: Include the author data
+      include: {
+        author: {
+          select: {
+            id: true,
+            email: true, // We use 'email' as name for now
+          }
+        }
+      },
     });
-    res.json(posts);
+
+    // Format the posts to match the frontend's `Post` type
+    const formattedPosts = posts.map(post => ({
+      id: post.id,
+      content: post.content,
+      authorId: post.authorId,
+      createdAt: post.createdAt,
+      // The frontend expects author `name` and `avatar`, so we map them here.
+      // We will use the author's email as their `name` for now.
+      // A placeholder for the avatar is used as the User model does not have one yet.
+      author: {
+        id: post.author.id,
+        name: post.author.email,
+        avatar: 'https://www.gravatar.com/avatar/' // Placeholder
+      }
+    }));
+
+    res.json(formattedPosts);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error.' });
