@@ -8,13 +8,8 @@ const prisma = new PrismaClient();
 
 app.use(express.json());
 
-// Define a list of allowed origins
-const allowedOrigins = [
-  'https://beamish-stardust-0c393f.netlify.app', // Deployed frontend
-  'http://localhost:3000' // Common local development port
-];
-
-app.use(cors({ origin: (origin, callback) => { // Allow requests with no origin (like Postman or direct server requests) if (!origin) return callback(null, true); // Allow if the origin is in our list if (allowedOrigins.indexOf(origin) !== -1) { return callback(null, true); } // Block other origins const msg = 'The CORS policy for this site does not allow access from the specified Origin.'; return callback(new Error(msg), false); }, methods: "GET,HEAD,PUT,PATCH,POST,DELETE", credentials: true, // Crucial for session/cookie management optionsSuccessStatus: 204 }));
+// Define allowed origins const allowedOrigins = [ 'https://beamish-stardust-0c393f.netlify.app', // Netlify Production 'http://localhost:3000', // Local Development ];
+app.use(cors({ origin: (origin, callback) => { // Allow requests with no origin (like mobile apps or curl requests) if (!origin) return callback(null, true); if (allowedOrigins.indexOf(origin) === -1) { const msg = 'The CORS policy for this site does not allow access from the specified Origin.'; return callback(new Error(msg), false); } return callback(null, true); }, methods: "GET,HEAD,PUT,PATCH,POST,DELETE", credentials: true, optionsSuccessStatus: 204 }));
 
 const PORT = process.env.PORT || 8080;
 
