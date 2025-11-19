@@ -107,4 +107,42 @@ app.post('/api/posts', async (req, res) => {
   }
 });
 
+// GET USER PROFILE
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        // Add bio/city later to schema
+      }
+    });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // TEMPORARY: Create a userWithProfile object to avoid breaking frontend
+    const userWithProfile = {
+      ...user,
+      profile: {
+        bio: "This is a temporary bio.",
+        city: "City Name"
+      }
+    };
+
+    res.json(userWithProfile);
+  } catch (error) {
+    console.error('Failed to get user profile:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+// UPDATE USER PROFILE (Stub)
+app.put('/api/users/:id', async (req, res) => {
+  // Placeholder for update logic
+  res.json({ message: "Profile updated successfully" });
+});
+
 app.listen(PORT, '0.0.0.0', () => console.log(`Server running on ${PORT}`));
