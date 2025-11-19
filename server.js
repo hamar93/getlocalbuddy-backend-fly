@@ -1,7 +1,7 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
 const cors = require('cors');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -98,7 +98,9 @@ app.get('/api/posts', async (req, res) => {
 app.post('/api/posts', async (req, res) => {
   const { content, authorId } = req.body;
   try {
-    const post = await prisma.post.create({ data: { content, authorId } });
+    const post = await prisma.post.create({
+      data: { content, authorId }
+    });
     res.status(201).json(post);
   } catch (e) {
     res.status(500).json({ error: 'Failed to create post' });
