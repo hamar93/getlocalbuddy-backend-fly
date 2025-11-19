@@ -6,10 +6,10 @@ const cors = require('cors');
 const app = express();
 const prisma = new PrismaClient();
 
-// 1. CORS CONFIGURATION (Critical for Netlify connection)
+// 1. CORS CONFIGURATION (Matches Frontend)
 const allowedOrigins = [
-  'https://beamish-stardust-0c393f.netlify.app', // Production Frontend
-  'http://localhost:3000' // Local Development
+  'https://beamish-stardust-0c393f.netlify.app', // Production
+  'http://localhost:3000' // Local Dev
 ];
 
 app.use(cors({
@@ -27,98 +27,82 @@ app.use(cors({
 }));
 
 app.use(express.json());
-
 const PORT = process.env.PORT || 8080;
 
-// --- HEALTH CHECK ---
-app.get('/api/status', (req, res) => {
-  res.json({ status: 'ok', service: 'backend' });
-});
+// --- ROUTES ---
 
-// --- REGISTRATION ---
+// Health Check
+app.get('/api/status', (req, res) => res.json({ status: 'ok' }));
+
+// Register
 app.post('/api/register', async (req, res) => {
   const { email, password, role } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email and password required.' });
-
+  if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        role
-      },
+      data: { email, password: hashedPassword, role }
     });
-    res.status(201).json({ message: 'User created.', userId: user.id });
-  } catch (error) {
-    if (error.code === 'P2002') return res.status(409).json({ error: 'Email already exists.' });
-    console.error(error);
-    res.status(500).json({ error: 'Server error.' });
+    res.status(201).json({ message: 'User created', userId: user.id });
+  } catch (e) {
+    res.status(500).json({ error: 'User already exists or server error' });
   }
 });
 
-// --- LOGIN ---
+// Login
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email and password required.' });
-
   try {
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(404).json({ error: 'User not found.' });
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Invalid password.' });
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
-    const { password: _, ...userWithoutPassword } = user;
-    res.json({ message: 'Login successful.', user: userWithoutPassword });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error.' });
+    res.json({ id: user.id, email: user.email, role: user.role });
+  } catch (e) {
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// --- GET POSTS (Timeline) ---
+// GET POSTS (Timeline)
 app.get('/api/posts', async (req, res) => {
   try {
     const posts = await prisma.post.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
         author: {
-          select: {
-            id: true,
-            email: true // Using email as name fallback
-          }
+          select: { id: true, email: true }
         }
       }
     });
-    res.json(posts);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error.' });
+    // Format data for frontend
+    const formatted = posts.map(p => ({
+      id: p.id,
+      content: p.content,
+      createdAt: p.createdAt,
+      likes: p.likes || 0,
+      comments: 0,
+      author: {
+        id: p.author.id,
+        name: p.author.email.split('@')[0], // Fallback name
+        avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.author.id}` // Better avatars
+      }
+    }));
+    res.json(formatted);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to fetch posts' });
   }
 });
 
-// --- CREATE POST ---
+// CREATE POST
 app.post('/api/posts', async (req, res) => {
   const { content, authorId } = req.body;
-  if (!content || !authorId) return res.status(400).json({ error: 'Content/Author missing' });
-
   try {
-    const post = await prisma.post.create({
-      data: {
-        content,
-        authorId
-      },
-    });
+    const post = await prisma.post.create({ data: { content, authorId } });
     res.status(201).json(post);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error.' });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to create post' });
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, '0.0.0.0', () => console.log(`Server running on ${PORT}`));
