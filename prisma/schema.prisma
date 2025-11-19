@@ -1,21 +1,32 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// prisma/schema.prisma
 
 generator client {
   provider = "prisma-client-js"
 }
 
-// JAVÍTÁS: A providert átállítjuk "mongodb"-re
 datasource db {
   provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
-// JAVÍTÁS: A User modellt a MongoDB-hez igazítjuk
 model User {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   email     String   @unique
   password  String
+  role      String   @default("Traveler") // Ez hiányzott!
+  posts     Post[]                        // Ez a kapcsolat hiányzott!
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Ez a TELJES modell hiányzott:
+model Post {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  likes     Int      @default(0)
+  
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String   @db.ObjectId
 }
