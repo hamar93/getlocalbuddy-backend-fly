@@ -6,10 +6,27 @@ const cors = require('cors');
 const app = express();
 const prisma = new PrismaClient();
 
-app.use(express.json());
+// 1. CORS CONFIGURATION (Critical for Netlify connection)
+const allowedOrigins = [
+  'https://beamish-stardust-0c393f.netlify.app', // Production Frontend
+  'http://localhost:3000' // Local Development
+];
 
-// Define allowed origins const allowedOrigins = [ 'https://beamish-stardust-0c393f.netlify.app', // Netlify Production 'http://localhost:3000', // Local Development ];
-app.use(cors({ origin: (origin, callback) => { // Allow requests with no origin (like mobile apps or curl requests) if (!origin) return callback(null, true); if (allowedOrigins.indexOf(origin) === -1) { const msg = 'The CORS policy for this site does not allow access from the specified Origin.'; return callback(new Error(msg), false); } return callback(null, true); }, methods: "GET,HEAD,PUT,PATCH,POST,DELETE", credentials: true, optionsSuccessStatus: 204 }));
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  credentials: true,
+  optionsSuccessStatus: 204
+}));
+
+app.use(express.json());
 
 const PORT = process.env.PORT || 8080;
 
@@ -18,13 +35,10 @@ app.get('/api/status', (req, res) => {
   res.json({ status: 'ok', service: 'backend' });
 });
 
-// --- REGISTRATION ENDPOINT ---
+// --- REGISTRATION ---
 app.post('/api/register', async (req, res) => {
   const { email, password, role } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required.' });
-  }
+  if (!email || !password) return res.status(400).json({ error: 'Email and password required.' });
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -32,116 +46,79 @@ app.post('/api/register', async (req, res) => {
       data: {
         email,
         password: hashedPassword,
-        role, // This correctly accepts the 'role' from the frontend
+        role
       },
     });
-    res.status(201).json({ message: 'User created successfully.', userId: user.id });
+    res.status(201).json({ message: 'User created.', userId: user.id });
   } catch (error) {
-    if (error.code === 'P2002') {
-      return res.status(409).json({ error: 'Email already exists.' });
-    }
+    if (error.code === 'P2002') return res.status(409).json({ error: 'Email already exists.' });
     console.error(error);
-    res.status(500).json({ error: 'Internal server error.' });
+    res.status(500).json({ error: 'Server error.' });
   }
 });
 
-// --- LOGIN ENDPOINT ---
+// --- LOGIN ---
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required.' });
-  }
+  if (!email || !password) return res.status(400).json({ error: 'Email and password required.' });
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { email: email },
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found.' });
-    }
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(404).json({ error: 'User not found.' });
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
-
     if (!isPasswordValid) {
       return res.status(401).json({ error: 'Invalid password.' });
     }
-
-    // Do not send the password back to the client
     const { password: _, ...userWithoutPassword } = user;
     res.json({ message: 'Login successful.', user: userWithoutPassword });
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error.' });
+    res.status(500).json({ error: 'Server error.' });
   }
 });
 
-// --- CREATE POST ENDPOINT ---
+// --- GET POSTS (Timeline) ---
+app.get('/api/posts', async (req, res) => {
+  try {
+    const posts = await prisma.post.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        author: {
+          select: {
+            id: true,
+            email: true // Using email as name fallback
+          }
+        }
+      }
+    });
+    res.json(posts);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// --- CREATE POST ---
 app.post('/api/posts', async (req, res) => {
   const { content, authorId } = req.body;
-
-  if (!content || !authorId) {
-    return res.status(400).json({ error: 'Content and author ID are required.' });
-  }
+  if (!content || !authorId) return res.status(400).json({ error: 'Content/Author missing' });
 
   try {
     const post = await prisma.post.create({
       data: {
         content,
-        authorId,
+        authorId
       },
     });
     res.status(201).json(post);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error.' });
+    res.status(500).json({ error: 'Server error.' });
   }
 });
 
-// --- GET POSTS ENDPOINT (UPDATED) ---
-app.get('/api/posts', async (req, res) => {
-  try {
-    const posts = await prisma.post.findMany({
-      orderBy: {
-        createdAt: 'desc',
-      },
-      // UPDATE: Include the author data
-      include: {
-        author: {
-          select: {
-            id: true,
-            email: true, // We use 'email' as name for now
-          }
-        }
-      },
-    });
-
-    // Format the posts to match the frontend's `Post` type
-    const formattedPosts = posts.map(post => ({
-      id: post.id,
-      content: post.content,
-      authorId: post.authorId,
-      createdAt: post.createdAt,
-      // The frontend expects author `name` and `avatar`, so we map them here.
-      // We will use the author's email as their `name` for now.
-      // A placeholder for the avatar is used as the User model does not have one yet.
-      author: {
-        id: post.author.id,
-        name: post.author.email,
-        avatar: 'https://www.gravatar.com/avatar/' // Placeholder
-      }
-    }));
-
-    res.json(formattedPosts);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error.' });
-  }
-});
-
-// --- SERVER START ---
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
