@@ -2,7 +2,7 @@
 
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-1.0.x"] 
+  binaryTargets = ["native", "rhel-openssl-1.0.x"]
 }
 
 datasource db {
@@ -14,18 +14,22 @@ model User {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   email     String   @unique
   password  String
-  role      String   @default("Traveler") // Ez hiányzott!
-  posts     Post[]                        // Ez a kapcsolat hiányzott!
+  role      String   @default("Traveler")
+  posts     Post[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
+  // --- ÚJ MEZŐK (Ezek hiányoztak!) ---
+  name      String?
+  bio       String?
+  city      String?
+  avatarUrl String?
 }
 
-// Ez a TELJES modell hiányzott:
 model Post {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   content   String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
   likes     Int      @default(0)
   
   author    User     @relation(fields: [authorId], references: [id])
