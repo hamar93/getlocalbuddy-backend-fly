@@ -107,35 +107,50 @@ app.post('/api/posts', async (req, res) => {
   }
 });
 
-// GET USER PROFILE
+// GET USER PROFILE (Real Data)
 app.get('/api/users/:id', async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.params.id },
-      select: { id: true, email: true, role: true, createdAt: true } 
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        name: true,       // New field
+        bio: true,        // New field
+        city: true,       // New field
+        avatarUrl: true   // New field
+      }
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
-    // Mock extended profile data
-    const userWithProfile = {
-        ...user,
-        name: user.email.split('@')[0],
-        bio: "Exploring the world, one city at a time.",
-        city: "Budapest, Hungary",
-        avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`
+
+    // Provide a default avatar if none exists
+    const finalUser = {
+      ...user,
+      avatarUrl: user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`
     };
-    
-    res.json(userWithProfile);
+    res.json(finalUser);
   } catch (e) {
+    console.error(e);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-
-// UPDATE USER PROFILE (Stub)
+// UPDATE USER PROFILE (Real Save)
 app.put('/api/users/:id', async (req, res) => {
-  // Placeholder for update logic
-  res.json({ message: "Profile updated successfully" });
+  const { name, bio, city, role } = req.body;
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: req.params.id },
+      data: { name, bio, city, role },
+      select: { id: true, name: true, bio: true, city: true, role: true, avatarUrl: true }
+    });
+    res.json(updatedUser);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
 });
 
 app.listen(PORT, '0.0.0.0', () => console.log(`Server running on ${PORT}`));

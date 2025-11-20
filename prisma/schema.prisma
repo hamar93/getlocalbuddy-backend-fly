@@ -21,6 +21,10 @@ model User {
   posts       Post[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  name        String?
+  bio         String?
+  city        String?
+  avatarUrl   String?
 }
 
 model Post {
