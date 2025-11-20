@@ -112,29 +112,22 @@ app.get('/api/users/:id', async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.params.id },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        // Add bio/city later to schema
-      }
+      select: { id: true, email: true, role: true, createdAt: true } 
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
-
-    // TEMPORARY: Create a userWithProfile object to avoid breaking frontend
+    
+    // Mock extended profile data
     const userWithProfile = {
-      ...user,
-      profile: {
-        bio: "This is a temporary bio.",
-        city: "City Name"
-      }
+        ...user,
+        name: user.email.split('@')[0],
+        bio: "Exploring the world, one city at a time.",
+        city: "Budapest, Hungary",
+        avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`
     };
-
+    
     res.json(userWithProfile);
-  } catch (error) {
-    console.error('Failed to get user profile:', error);
-    res.status(500).json({ error: 'Internal server error' });
+  } catch (e) {
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
