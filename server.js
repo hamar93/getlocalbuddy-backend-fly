@@ -1,52 +1,29 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
 const cors = require('cors');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const prisma = new PrismaClient();
 
-// --- 🔍 DEBUG ZÓNA (EZT FIGYELD A LOGBAN!) ---
-console.log("========================================");
-console.log("🔍 PRISMA CLIENT DIAGNOSTICS");
-console.log("========================================");
-try {
-  // Kiírjuk az összes modellt, amit a Prisma ismer
-  // A prisma._runtimeDataModel.models vagy hasonló belső tulajdonságok helyett
-  // egyszerűen megnézzük a prisma objektum kulcsait.
-  const keys = Object.keys(prisma);
-  console.log("Available keys on prisma object:", keys);
-  
-  if (prisma.post) {
-    console.log("✅ SUCCESS: 'post' model FOUND!");
-  } else {
-    console.error("❌ CRITICAL ERROR: 'post' model is UNDEFINED!");
-    console.error("⚠️ Ez azt jelenti, hogy a 'prisma generate' a RÉGI sémából dolgozott.");
-  }
-} catch (err) {
-  console.error("Debug error:", err);
-}
-console.log("========================================");
-// ---------------------------------------------
-
-// 1. CORS CONFIGURATION
+// 1. CORS CONFIGURATION (Matches Frontend)
 const allowedOrigins = [
-    'https://beamish-stardust-0c393f.netlify.app',
-    'http://localhost:3000'
+  'https://beamish-stardust-0c393f.netlify.app', // Production
+  'http://localhost:3000' // Local Dev
 ];
 
 app.use(cors({
-    origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) === -1) {
-            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-            return callback(new Error(msg), false);
-        }
-        return callback(null, true);
-    },
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-    credentials: true,
-    optionsSuccessStatus: 204
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  credentials: true,
+  optionsSuccessStatus: 204
 }));
 
 app.use(express.json());
@@ -54,8 +31,10 @@ const PORT = process.env.PORT || 8080;
 
 // --- ROUTES ---
 
+// Health Check
 app.get('/api/status', (req, res) => res.json({ status: 'ok', service: 'backend' }));
 
+// Register
 app.post('/api/register', async (req, res) => {
   const { email, password, role } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
@@ -66,11 +45,11 @@ app.post('/api/register', async (req, res) => {
     });
     res.status(201).json({ message: 'User created', userId: user.id });
   } catch (e) {
-    if (e.code === 'P2002') return res.status(409).json({ error: 'Email already exists.' });
     res.status(500).json({ error: 'User already exists or server error' });
   }
 });
 
+// Login
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -84,15 +63,25 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// GET POSTS (Timeline) - WITH LOGGING
 app.get('/api/posts', async (req, res) => {
+  console.log("[DEBUG] GET /api/posts called");
   try {
-    console.log("Attempting to fetch posts..."); // Debug log
-    if (!prisma.post) throw new Error("Prisma Post model is missing!");
-    
+    // First check if Prisma works at all
+    const count = await prisma.post.count();
+    console.log(`[DEBUG] Found ${count} posts in database`);
+
     const posts = await prisma.post.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { author: { select: { id: true, email: true } } }
+      include: {
+        author: {
+          select: { id: true, email: true, name: true, avatarUrl: true }
+        }
+      }
     });
+    console.log(`[DEBUG] Retrieved ${posts.length} posts with authors`);
+
+    // Format data for frontend
     const formatted = posts.map(p => ({
       id: p.id,
       content: p.content,
@@ -101,17 +90,18 @@ app.get('/api/posts', async (req, res) => {
       comments: 0,
       author: {
         id: p.author.id,
-        name: p.author.email.split('@')[0],
-        avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.author.id}`
+        name: p.author.name || p.author.email.split('@')[0], // Use name if available
+        avatarUrl: p.author.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.author.id}`
       }
     }));
     res.json(formatted);
   } catch (e) {
-    console.error("GET /api/posts ERROR:", e);
+    console.error("[ERROR] GET /api/posts failed:", e);
     res.status(500).json({ error: 'Failed to fetch posts', details: e.message });
   }
 });
 
+// CREATE POST
 app.post('/api/posts', async (req, res) => {
   const { content, authorId } = req.body;
   try {
@@ -124,23 +114,43 @@ app.post('/api/posts', async (req, res) => {
   }
 });
 
+// GET USER PROFILE (Real Data) - WITH LOGGING
 app.get('/api/users/:id', async (req, res) => {
+  console.log(`[DEBUG] GET /api/users/${req.params.id} called`);
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.params.id },
-      select: { id: true, email: true, role: true, createdAt: true, name: true, bio: true, city: true, avatarUrl: true }
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        name: true,       // New field
+        bio: true,        // New field
+        city: true,       // New field
+        avatarUrl: true   // New field
+      }
     });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (!user) {
+      console.log(`[DEBUG] User ${req.params.id} not found`);
+      return res.status(404).json({ error: 'User not found' });
+    }
+    console.log(`[DEBUG] User found: ${user.email}`);
+
+    // Provide a default avatar if none exists
     const finalUser = {
       ...user,
       avatarUrl: user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`
     };
     res.json(finalUser);
   } catch (e) {
-    res.status(500).json({ error: 'Server error' });
+    console.error(`[ERROR] GET /api/users/${req.params.id} failed:`, e);
+    res.status(500).json({ error: 'Server error', details: e.message });
   }
 });
 
+// UPDATE USER PROFILE (Real Save)
 app.put('/api/users/:id', async (req, res) => {
   const { name, bio, city, role } = req.body;
   try {
@@ -151,8 +161,10 @@ app.put('/api/users/:id', async (req, res) => {
     });
     res.json(updatedUser);
   } catch (e) {
+    console.error(e);
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });
 
 app.listen(PORT, '0.0.0.0', () => console.log(`Server running on ${PORT}`));
+
