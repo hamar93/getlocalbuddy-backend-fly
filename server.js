@@ -63,17 +63,24 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// GET POSTS (Timeline)
+// GET POSTS (Timeline) - WITH LOGGING
 app.get('/api/posts', async (req, res) => {
+  console.log("[DEBUG] GET /api/posts called");
   try {
+    // First check if Prisma works at all
+    const count = await prisma.post.count();
+    console.log(`[DEBUG] Found ${count} posts in database`);
+
     const posts = await prisma.post.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
         author: {
-          select: { id: true, email: true }
+          select: { id: true, email: true, name: true, avatarUrl: true }
         }
       }
     });
+    console.log(`[DEBUG] Retrieved ${posts.length} posts with authors`);
+
     // Format data for frontend
     const formatted = posts.map(p => ({
       id: p.id,
@@ -83,14 +90,14 @@ app.get('/api/posts', async (req, res) => {
       comments: 0,
       author: {
         id: p.author.id,
-        name: p.author.email.split('@')[0], // Fallback name
-        avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.author.id}` // Better avatars
+        name: p.author.name || p.author.email.split('@')[0], // Use name if available
+        avatarUrl: p.author.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.author.id}`
       }
     }));
     res.json(formatted);
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Failed to fetch posts' });
+    console.error("[ERROR] GET /api/posts failed:", e);
+    res.status(500).json({ error: 'Failed to fetch posts', details: e.message });
   }
 });
 
@@ -107,8 +114,9 @@ app.post('/api/posts', async (req, res) => {
   }
 });
 
-// GET USER PROFILE (Real Data)
+// GET USER PROFILE (Real Data) - WITH LOGGING
 app.get('/api/users/:id', async (req, res) => {
+  console.log(`[DEBUG] GET /api/users/${req.params.id} called`);
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.params.id },
@@ -123,7 +131,12 @@ app.get('/api/users/:id', async (req, res) => {
         avatarUrl: true   // New field
       }
     });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (!user) {
+      console.log(`[DEBUG] User ${req.params.id} not found`);
+      return res.status(404).json({ error: 'User not found' });
+    }
+    console.log(`[DEBUG] User found: ${user.email}`);
 
     // Provide a default avatar if none exists
     const finalUser = {
@@ -132,8 +145,8 @@ app.get('/api/users/:id', async (req, res) => {
     };
     res.json(finalUser);
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Server error' });
+    console.error(`[ERROR] GET /api/users/${req.params.id} failed:`, e);
+    res.status(500).json({ error: 'Server error', details: e.message });
   }
 });
 
